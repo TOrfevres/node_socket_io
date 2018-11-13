@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello world!</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        form {
+            margin: 0 5px;
+        }
+
+        main {
+            min-width: 800px;
+        }
+
+        #content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: calc(100vw - 20px);
+            min-width: 800px;
+            height: 600px;
+            margin: 10px;
+        }
+
+        #conversation {
+            display: flex;
+            flex-direction: column;
+            width: 75%;
+            height: 100%;
+            padding: 5px;
+            border: 1px solid black;
+            border-radius: 5px;
+            overflow-x: hidden;
+            overflow-y: scroll;
+        }
+
+        #usersList {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            border: 1px solid black;
+            border-radius: 5px;
+            width: 25%;
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: scroll;
+        }
+
+        .msg {
+            display: inline-block;
+            width: 100%;
+            margin: 5px 0;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+            word-break: break-word;
+        }
+
+        .privateMsg .label {
+            color: magenta;
+        }
+
+        .label {
+            display: inline-block;
+            margin: 5px;
+            color: darkslateblue;
+        }
+
+        .tag {
+            padding: 5px;
+            background-color: lightgray;
+            font-weight: bold;
+        }
+
+        .me {
+            background-color: goldenrod;
+            color: white;
+        }
+
+        .userName {
+            font-weight: normal;
+            cursor: default;
+            margin: 5px 0;
+        }
+
+        .userName:hover {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #tagsListing {
+            display: flex;
+            flex-direction: column;
+            width: 100px;
+        }
+
+        #tagsListing .searchedTag {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: normal;
+            cursor: default;
+        }
+
+        #tagsListing .searchedTag:hover {
+            text-overflow: initial;
+            overflow: visible;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #submitBtn {
+            width: 25%;
+        }
+
+        #messageInput {
+            width: calc(75% - 10px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div id="content">
+            <div id="conversation"></div>
+            <div id="usersList"></div>
+        </div>
+
+        <form action="javascript:void(0);">
+            <input type="text" id="messageInput" placeholder="Your message ..." onkeyup="usersG()">
+            <button id="submitBtn" onclick="sendMessage()">SEND</button>
+        </form>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io();
+
+        let messageInput = document.getElementById('messageInput');
+        let messagesWrapper = document.getElementById('conversation');
+
+        socket.on('message', data => {
+            let msg = data.msg.replace('@' + socket.id, '<span class="tag me">you</span>');
+            msg = msg.split(' ').map(w => {
+                if (w.startsWith('@')) {
+                    return '<span class="tag">' + w + '</span>'
+                }
+                return w;
+            }).join(' ');
+            let autoScroll = messagesWrapper.scrollTop > messagesWrapper.scrollHeight - 650 || messagesWrapper.scrollTop === 0;
+            messagesWrapper.innerHTML += '<p class="msg' + (data.private ? ' privateMsg' : '') + '"><span class="label">[' +
+                (new Date(data.date)).toLocaleDateString("fr-FR", {
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric'
+                }) + '] ' +
+                (data.id === socket.id ? 'You' :
+                    '<span class="userName" onclick="createPrivateChannel(\'' + data.id + '\')">' + data.id + '</span>') +
+                '</span>' + msg + '</p>';
+            if (autoScroll) messagesWrapper.scrollTo(0, messagesWrapper.scrollHeight);
+        });
+
+        socket.on('usersR', tags => {
+            let listing = document.createElement('div');
+            tags.slice(0, 5).forEach(t => {
+                let tag = document.createElement('span');
+                tag.className = 'searchedTag';
+                tag.onclick = () => {
+                    let input = messageInput.value.split(' ');
+                    input.pop();
+                    messageInput.value = input.join(' ') + ' @' + t + ' ';
+                    removeTagsListing();
+                };
+                tag.innerHTML = '@' + t;
+                listing.appendChild(tag);
+            });
+            listing.id = 'tagsListing';
+            if (tags.length <= 0) listing.innerText = 'No tags found :/';
+
+            removeTagsListing();
+            document.body.appendChild(listing);
+        });
+
+        socket.on('usersL', users => {
+            let list = document.getElementById('usersList');
+            list.innerHTML = '';
+            users.forEach(u => {
+                if (u !== socket.id) {
+                    let user = document.createElement('span');
+                    user.className = 'userName';
+                    user.innerHTML = u;
+                    list.appendChild(user);
+                    user.onclick = () => createPrivateChannel(u);
+                }
+            });
+        });
+
+        let createPrivateChannel = (tag) => {
+            let input = messageInput.value.split(' ');
+            input.unshift('/m', tag);
+            messageInput.value = input.join(' ');
+        };
+
+        let removeTagsListing = () => {
+            let oldListing = document.getElementById('tagsListing');
+            if (oldListing) oldListing.parentNode.removeChild(oldListing);
+        };
+
+        let usersG = () => {
+            let lastWord = messageInput.value.split(' ')[messageInput.value.split(' ').length - 1];
+            if (lastWord.startsWith('@')) {
+                socket.emit('usersG', lastWord.slice(1));
+            } else {
+                removeTagsListing();
+            }
+        };
+
+        let sendMessage = () => {
+            if (messageInput.value !== '') {
+                socket.emit('message', {
+                    id: socket.id,
+                    date: Date.now(),
+                    msg: messageInput.value,
+                    private: false
+                });
+                messageInput.value = '';
+            }
+        };
+
+        socket.emit('loaded', 'page loaded!');
+    </script>
+</body>
+</html>

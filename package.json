@@ -1,0 +1,17 @@
+{
+  "name": "node_socket_io",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Théodore Orfèvres",
+  "license": "ISC",
+  "dependencies": {
+    "config": "^2.0.1",
+    "express": "^4.16.4",
+    "socket.io": "^2.1.1",
+    "socket.io-client": "^2.1.1"
+  }
+}
