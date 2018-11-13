@@ -7,19 +7,53 @@ io.on('connection', socket => {
     io.emit('usersL', Object.keys(io.sockets.clients().connected));
 
     socket.on('message', msg => {
-        if (msg.msg.startsWith('/m ')) {
-            let asList = msg.msg.split(' ');
-            let secondSocket = io.sockets.clients().connected[asList[1]];
-            let roomName = socket.id + secondSocket;
-            if (!Object.keys(socket.rooms).includes(roomName)) socket.join(roomName);
-            if (!Object.keys(secondSocket).includes(roomName)) secondSocket.join(roomName);
-            asList.shift();
-            asList.shift();
-            msg.msg = asList.join(' ');
-            msg.private = true;
-            io.to(roomName).emit('message', msg)
-        } else {
-            io.emit('message', msg)
+        let asList = msg.msg.split(' ');
+        let socketsToJoin = [socket];
+
+        switch (asList[0]) {
+            case '/m':
+                // SEND A PRIVATE MESSAGE
+                socketsToJoin.push(io.sockets.clients().connected[asList[1]]);
+                socketsToJoin.sort();
+                let roomName = socketsToJoin.join('');
+                socketsToJoin.forEach(s => {
+                    if (!Object.keys(s.rooms).includes(roomName)) s.join(roomName);
+                });
+                msg.msg = asList.slice(2).join(' ');
+                msg.private = true;
+                io.to(roomName).emit('message', msg);
+                break;
+
+            // CREATE A PRIVATE ROOM W/ USERS
+            case '/r':
+                asList.slice(2).forEach(e => {
+                    socketsToJoin.push(io.sockets.clients().connected[e]);
+                });
+                socketsToJoin.sort();
+                socketsToJoin.forEach(s => {
+                    if (!Object.keys(s.rooms).includes(asList[1])) s.join(asList[1]);
+                });
+                break;
+
+            // SEND A MESSAGE TO A PRIVATE ROOM
+            case '/g':
+                msg.msg = asList.slice(2).join(' ');
+                msg.private = true;
+                io.to(asList[1]).emit('message', msg);
+                break;
+
+            default:
+                if (asList[0].startsWith('/')) {
+                    socket.emit('message', {
+                        id: 'Server',
+                        date: Date.now(),
+                        msg: asList[0] + ' is an unknown command ...',
+                        private: false
+                    });
+                } else {
+                    io.emit('message', msg);
+                }
+                break;
         }
     });
 

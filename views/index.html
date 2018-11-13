@@ -149,6 +149,12 @@
             <input type="text" id="messageInput" placeholder="Your message ..." onkeyup="usersG()">
             <button id="submitBtn" onclick="sendMessage()">SEND</button>
         </form>
+
+        <pre>
+    /m user msg                     :       Send a private message to a specific user
+    /r roomName user1 user2 ...     :       Create a private discussion room
+    /g roomName msg                 :       Send a message into a private discussion room
+        </pre>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
