@@ -8,38 +8,41 @@ io.on('connection', socket => {
 
     socket.on('message', msg => {
         let asList = msg.msg.split(' ');
-        let socketsToJoin = [socket];
+        let targetSockets = [socket];
+        let joinSocketsToRoom = (room, sockets) => {
+            sockets.sort((a, b) => {
+
+            });
+            sockets.forEach(s => {
+                if (!Object.keys(s.rooms).includes(room)) s.join(room);
+            });
+        };
+        let sendMsgToRoom = (room, msg) => {
+            msg.private = true;
+            io.to(room).emit('message', msg);
+        };
 
         switch (asList[0]) {
+            // SEND A PRIVATE MESSAGE
             case '/m':
-                // SEND A PRIVATE MESSAGE
-                socketsToJoin.push(io.sockets.clients().connected[asList[1]]);
-                socketsToJoin.sort();
-                let roomName = socketsToJoin.join('');
-                socketsToJoin.forEach(s => {
-                    if (!Object.keys(s.rooms).includes(roomName)) s.join(roomName);
-                });
+                targetSockets.push(io.sockets.clients().connected[asList[1]]);
+                joinSocketsToRoom(targetSockets.join(''), targetSockets);
                 msg.msg = asList.slice(2).join(' ');
-                msg.private = true;
-                io.to(roomName).emit('message', msg);
+                sendMsgToRoom(targetSockets.join(''), msg);
                 break;
 
             // CREATE A PRIVATE ROOM W/ USERS
             case '/r':
                 asList.slice(2).forEach(e => {
-                    socketsToJoin.push(io.sockets.clients().connected[e]);
+                    targetSockets.push(io.sockets.clients().connected[e]);
                 });
-                socketsToJoin.sort();
-                socketsToJoin.forEach(s => {
-                    if (!Object.keys(s.rooms).includes(asList[1])) s.join(asList[1]);
-                });
+                joinSocketsToRoom(asList[1], targetSockets);
                 break;
 
             // SEND A MESSAGE TO A PRIVATE ROOM
             case '/g':
                 msg.msg = asList.slice(2).join(' ');
-                msg.private = true;
-                io.to(asList[1]).emit('message', msg);
+                sendMsgToRoom(asList[1], msg);
                 break;
 
             default:
