@@ -10,9 +10,7 @@ io.on('connection', socket => {
         let asList = msg.msg.split(' ');
         let targetSockets = [socket];
         let joinSocketsToRoom = (room, sockets) => {
-            sockets.sort((a, b) => {
-
-            });
+            sockets.sort();
             sockets.forEach(s => {
                 if (!Object.keys(s.rooms).includes(room)) s.join(room);
             });
